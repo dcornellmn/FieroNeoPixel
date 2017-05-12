@@ -37,7 +37,6 @@ const int BLINK_RATE	= 5; 	// number of loops that a blinker stays on or off
 // Specify input pins
 static const uint8_t REVERSE_PIN	= A0;
 static const uint8_t ACCENTPOT_PIN	= A1;	// potentiometer knob for selecting logo color
-static const uint8_t ACCENTSET_PIN	= A2;	// button to "lock" the current color to the Pontiac logo
 static const uint8_t RESET_PIN		= 9;
 
 // Specify NeoPixel output pins
@@ -46,21 +45,18 @@ static const uint8_t RIGHTTURN_PIX		= 3;	// turn signals/brakes/etc
 static const uint8_t LEFTSIDE_PIX		= 4;	// side marker lights
 static const uint8_t RIGHTSIDE_PIX		= 5;	// side marker lights
 static const uint8_t LOGO_PIX			= 6;	// Pontiac logo lighting
-static const uint8_t ACCENT_PIX 		= 7;	// logo color indicator
 // Specify NeoPixel strand lengths (in pixels)
 static const uint16_t LEFTTURN_SIZE 	= 8;	// number of pixels in left turn signal/brake
 static const uint16_t RIGHTTURN_SIZE	= 8;	// number of pixels in right turn signal/brake
 static const uint16_t LEFTSIDE_SIZE 	= 8;	// number of pixels in side marker lights
 static const uint16_t RIGHTSIDE_SIZE	= 8;	// number of pixels in side marker lights
 static const uint16_t LOGO_SIZE 		= 1;	// number of pixels in Pontiac logo lighting
-static const uint16_t ACCENT_SIZE		= 1;	// number of pixels in logo color indicator
 // Specify type of strands (usually NEO_GRB for 3-color pixels, or NEO_RGBW for 4-color pixels)
 static const neoPixelType LEFTTURN_TYPE 	= NEO_RGBW;	// type of strand for left turn signal/brake
 static const neoPixelType RIGHTTURN_TYPE	= NEO_RGBW;	// type of strand for right turn signal/brake
 static const neoPixelType LEFTSIDE_TYPE 	= NEO_RGBW;	// type of strand for side marker lights
 static const neoPixelType RIGHTSIDE_TYPE	= NEO_RGBW;	// type of strand for side marker lights
 static const neoPixelType LOGO_TYPE 		= NEO_RGBW;	// type of strand for Pontiac logo lighting
-static const neoPixelType ACCENT_TYPE		= NEO_RGBW;	// type of strand for logo color indicator
 
 // Comm lines
 static const uint8_t LINK_TX	= 12;
@@ -75,7 +71,6 @@ static const uint8_t LINK_RX	= 11;
 // Input Signals
 Atm_digital reverseInput;
 Atm_button resetButton;
-Atm_button colorSetButton;
 Atm_analog colorKnob;
 Atm_bit brakesOn; 
 Atm_bit turningLeft;
@@ -89,7 +84,6 @@ Adafruit_NeoPixel rightBlinker = Adafruit_NeoPixel(RIGHTTURN_SIZE, RIGHTTURN_PIX
 Adafruit_NeoPixel leftSideMarker = Adafruit_NeoPixel(LEFTSIDE_SIZE, LEFTSIDE_PIX, LEFTSIDE_TYPE);
 Adafruit_NeoPixel rightSideMarker = Adafruit_NeoPixel(RIGHTSIDE_SIZE, RIGHTSIDE_PIX, RIGHTSIDE_TYPE);
 Adafruit_NeoPixel pontiacLogo = Adafruit_NeoPixel(LOGO_SIZE, LOGO_PIX, LOGO_TYPE);
-Adafruit_NeoPixel logoColorIndicator = Adafruit_NeoPixel(ACCENT_SIZE, ACCENT_PIX, ACCENT_TYPE);
 // Serial controls
 Atm_command peerCmd;
 // Animation timer
@@ -106,7 +100,6 @@ char buffer[32];
 // static/global state variables
 int blinkstarted; // value of up when blinking started
 bool blinklit;
-uint32_t logoColor;
 
 // Timer callback to push patterns out to the pixels
 void pattern_callback( int idx, int v, int up ) {
@@ -276,15 +269,6 @@ void cmd_callback( int idx, int v, int up ) {
 	}
 }
 
-// Button callback for color set button
-void setLogoColor(int idx=0, int v=0, int up=0) {
-	// user has approved the color on the indicator LED - push it out to the Pontiac logo lighting
-	for (int i=0; i<LOGO_SIZE; i++) {
-		pontiacLogo.setPixelColor(i, logoColor);
-	}
-	pontiacLogo.show();
-}
-
 // Utility function adapted from the Adafruit NeoPattern example code
 // Theirs took an 8-bit input - this uses the 10 bits available from an analog pin
 uint32_t Wheel10(int index) {
@@ -306,14 +290,11 @@ uint32_t Wheel10(int index) {
 // Analog callback for color potentiometer
 // Atm_analog::onChange sends the current sample in v
 void changeLogoColor(int idx, int v, int up) {
-	// use the pot position to select a color
-	logoColor = Wheel10(v);
-	
 	// show the new color on the indicator LED, but don't sent to the Pontiac logo yet
-	for (int i=0; i<ACCENT_SIZE; i++) {
-		logoColorIndicator.setPixelColor(i, logoColor);
+	for (int i=0; i<LOGO_SIZE; i++) {
+		pontiacLogo.setPixelColor(i, Wheel10(v));
 	}
-	logoColorIndicator.show();
+	pontiacLogo.show();
 }
 
 /*
@@ -328,7 +309,6 @@ void setup() {
 	leftSideMarker.begin();
 	rightSideMarker.begin();
 	pontiacLogo.begin();
-	logoColorIndicator.begin();
 
 	// Initialize inter-duino serial connection
 	serLink.begin(9600);
@@ -350,12 +330,9 @@ void setup() {
     	.onPress([](int idx, int v, int up) { reset(false); });
     colorKnob.begin(ACCENTPOT_PIN)
     	.onChange(changeLogoColor);
-    colorSetButton.begin(ACCENTSET_PIN)
-    	.onPress(setLogoColor);
 	
 	// grab the starting color from the knob position
 	changeLogoColor(0, colorKnob.state(), 0);
-	setLogoColor();
 	
     // Start the animation timer
     animator.begin(PULSE_MS)
