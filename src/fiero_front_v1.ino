@@ -21,11 +21,11 @@
 //  extra first two digits go to the white LED if equipped (ignored if not). For each 
 //  8-bit pair, 00 is completely off, and FF (255 in decimal) is on at maximum intensity.
 //  There are a number of existing utilities available to generate HTML color codes.
-const uint32_t CLR_BRAKES	= 0x00FF0000;	// red
-const uint32_t CLR_TURNS	= 0x00FFFF00;	// yellow
-const uint32_t CLR_DRL		= 0xBF000000;	// white 75%
-const uint32_t CLR_FPARK	= 0x00333300;	// yellow 20%
-const uint32_t CLR_RPARK	= 0x00330000;	// red 20%
+const uint32_t COLOR_BRAKES	= 0x00FF0000;	// red
+const uint32_t COLOR_TURNS	= 0x00FFFF00;	// yellow
+const uint32_t COLOR_DRL	= 0xBF000000;	// white 75%
+const uint32_t COLOR_FPARK	= 0x00333300;	// yellow 20%
+const uint32_t COLOR_RPARK	= 0x00330000;	// red 20%
 
 // Configure patterns - more to come when the patterns get fancier
 const int PULSE_MS  	= 100; 	// milliseconds between loop iterations
@@ -96,7 +96,7 @@ Atm_timer animator;
 // SoftwareSerial link to other end
 SoftwareSerial serLink(LINK_RX, LINK_TX); // define RX, TX pins (reverse for other side)
 // Command definitions - these next 3 lines *MUST* use the same command order
-enum { C_NOP, C_RST, C_PRK, C_BRK, C_LTS, C_RTS, C_HAZ, C_REV, C_SHO }; 
+enum { CMD_NOP, CMD_RST, CMD_PRK, CMD_BRK, CMD_LTS, CMD_RTS, CMD_HAZ, CMD_REV, CMD_SHO }; 
 const char cmdlist[] = "NOP RST PRK BRK LTS RTS HAZ REV SHO";
 const char* cmdarray[] = {"NOP", "RST", "PRK", "BRK", "LTS", "RTS", "HAZ", "REV", "SHO"};
 char buffer[32];
@@ -127,18 +127,18 @@ void pattern_callback( int idx, int v, int up ) {
 	
 	// paint the "base color" first - i.e. parking lights, DRL, or off
 	for (i=0; i<LEFTSIDE_SIZE; i++) 
-		leftSideMarker.setPixelColor(i, park ? CLR_FPARK : 0);
+		leftSideMarker.setPixelColor(i, park ? COLOR_FPARK : 0);
 	for (i=0; i<RIGHTSIDE_SIZE; i++) 
-		rightSideMarker.setPixelColor(i, park ? CLR_FPARK : 0);
+		rightSideMarker.setPixelColor(i, park ? COLOR_FPARK : 0);
 	// DRL is on when headlights are off - opposite of park
 	for (i=0; i<LEFTTURN_SIZE; i++) 
-		leftBlinker.setPixelColor(i, park ? 0 : CLR_DRL);
+		leftBlinker.setPixelColor(i, park ? 0 : COLOR_DRL);
 	for (i=0; i<RIGHTTURN_SIZE; i++) 
-		rightBlinker.setPixelColor(i, park ? 0 : CLR_DRL);
+		rightBlinker.setPixelColor(i, park ? 0 : COLOR_DRL);
 	
 	// center brake has one function in this design
 	for (i=0; i<CENTER_SIZE; i++) 
-		centerBrake.setPixelColor(i, brake ? CLR_BRAKES : 0);
+		centerBrake.setPixelColor(i, brake ? COLOR_BRAKES : 0);
 		
 	// if turning or hazards, paint the appropriate blinker(s)
 	if (hazard || turnleft || turnright) {
@@ -155,12 +155,12 @@ void pattern_callback( int idx, int v, int up ) {
 		// push the appropriate pixel colors
 		if (hazard || turnleft) {
 			for (i=0; i<LEFTTURN_SIZE; i++) {
-				leftBlinker.setPixelColor(i, blinklit ? CLR_TURNS : 0);
+				leftBlinker.setPixelColor(i, blinklit ? COLOR_TURNS : 0);
 			}
 		}
 		if (hazard || turnright) {
 		for (i=0; i<RIGHTTURN_SIZE; i++) {
-			rightBlinker.setPixelColor(i, blinklit ? CLR_TURNS : 0);
+			rightBlinker.setPixelColor(i, blinklit ? COLOR_TURNS : 0);
 			}
 		}
 	} else if (blinkstarted >= 0) {
@@ -190,7 +190,7 @@ void sendPeer(int cmd, int arg=-1) {
 // Reset everything possible
 void reset(bool fromPeer) {
 	if(!fromPeer) {
-		sendPeer(C_RST);
+		sendPeer(CMD_RST);
 	}
 	animator.stop();
 	leftBlinker.clear();
@@ -211,17 +211,17 @@ void reset(bool fromPeer) {
 // Command-processing callback for peerLink
 void cmd_callback( int idx, int v, int up ) {
   bool arg_true = false;
-  if(v > C_RST) {
+  if(v > CMD_RST) {
       arg_true = peerCmd.arg(1)[0] == '1';
   }
   switch ( v ) {
-    case C_NOP: 
+    case CMD_NOP: 
       // FUTURE: flag peer as alive
       return;
-    case C_RST:
+    case CMD_RST:
       reset(true);
       return;
-    case C_REV:
+    case CMD_REV:
       if(arg_true)
         inReverse.on();
       else
@@ -252,23 +252,23 @@ void setup() {
         
     // Initialize input/bit state machines
     brakeInput.begin(BRAKE_PIN)
-    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(C_BRK, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(C_BRK, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(CMD_BRK, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(CMD_BRK, 0); });
     turnleftInput.begin(TURNLEFT_PIN)    	
-    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(C_LTS, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(C_LTS, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(CMD_LTS, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(CMD_LTS, 0); });
     turnrightInput.begin(TURNRIGHT_PIN)    	
-    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(C_RTS, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(C_RTS, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(CMD_RTS, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(CMD_RTS, 0); });
     headlightInput.begin(PARK_PIN)    	
-    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(C_PRK, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(C_PRK, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(CMD_PRK, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(CMD_PRK, 0); });
     hazardInput.begin(HAZARD_PIN)    	
-    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(C_HAZ, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(C_HAZ, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(CMD_HAZ, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(CMD_HAZ, 0); });
     showModeInput.begin(SHOWMODE_PIN)
-    	.onChange(HIGH, [](int idx, int v, int up) { inShowMode.on(); sendPeer(C_SHO, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { inShowMode.off(); sendPeer(C_SHO, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { inShowMode.on(); sendPeer(CMD_SHO, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { inShowMode.off(); sendPeer(CMD_SHO, 0); });
     resetButton.begin(RESET_PIN)
     	.onChange(HIGH, [](int idx, int v, int up) { reset(false); });
     inShowMode.begin();

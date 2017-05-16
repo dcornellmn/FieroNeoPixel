@@ -21,10 +21,10 @@
 //  extra first two digits go to the white LED if equipped (ignored if not). For each 
 //  8-bit pair, 00 is completely off, and FF (255 in decimal) is on at maximum intensity.
 //  There are a number of existing utilities available to generate HTML color codes.
-const uint32_t CLR_BRAKES	= 0x00FF0000;	// red
-const uint32_t CLR_TURNS	= 0x00FFFF00;	// yellow
-const uint32_t CLR_REVERSE	= 0xFF000000;	// white
-const uint32_t CLR_RPARK	= 0x00330000;	// red 20%
+const uint32_t COLOR_BRAKES		= 0x00FF0000;	// red
+const uint32_t COLOR_TURNS		= 0x00FFFF00;	// yellow
+const uint32_t COLOR_REVERSE	= 0xFF000000;	// white
+const uint32_t COLOR_RPARK		= 0x00330000;	// red 20%
 
 // Configure pixel ranges within multi-purpose strands
 const uint16_t REVERSE_START	= 0;	// first pixel to light for reverse gear (0 = innermost pixel)
@@ -79,8 +79,8 @@ Atm_bit lightsOn;
 Atm_bit hazardOn;
 Atm_bit inShowMode;
 // Light strands
-Adafruit_NeoPixel leftBlinker = Adafruit_NeoPixel(LEFTTURN_SIZE, LEFTTURN_PIX, LEFTTURN_TYPE);
-Adafruit_NeoPixel rightBlinker = Adafruit_NeoPixel(RIGHTTURN_SIZE, RIGHTTURN_PIX, RIGHTTURN_TYPE);
+Adafruit_NeoPixel leftBrakeTurn = Adafruit_NeoPixel(LEFTTURN_SIZE, LEFTTURN_PIX, LEFTTURN_TYPE);
+Adafruit_NeoPixel rightBrakeTurn = Adafruit_NeoPixel(RIGHTTURN_SIZE, RIGHTTURN_PIX, RIGHTTURN_TYPE);
 Adafruit_NeoPixel leftSideMarker = Adafruit_NeoPixel(LEFTSIDE_SIZE, LEFTSIDE_PIX, LEFTSIDE_TYPE);
 Adafruit_NeoPixel rightSideMarker = Adafruit_NeoPixel(RIGHTSIDE_SIZE, RIGHTSIDE_PIX, RIGHTSIDE_TYPE);
 Adafruit_NeoPixel pontiacLogo = Adafruit_NeoPixel(LOGO_SIZE, LOGO_PIX, LOGO_TYPE);
@@ -92,7 +92,7 @@ Atm_timer animator;
 // SoftwareSerial link to other end
 SoftwareSerial serLink(LINK_RX, LINK_TX); // define RX, TX pins (reverse for other side)
 // Command definitions - these next 3 lines *MUST* use the same command order
-enum { C_NOP, C_RST, C_PRK, C_BRK, C_LTS, C_RTS, C_HAZ, C_REV, C_SHO }; 
+enum { CMD_NOP, CMD_RST, CMD_PRK, CMD_BRK, CMD_LTS, CMD_RTS, CMD_HAZ, CMD_REV, CMD_SHO }; 
 const char cmdlist[] = "NOP RST PRK BRK LTS RTS HAZ REV SHO";
 const char* cmdarray[] = {"NOP", "RST", "PRK", "BRK", "LTS", "RTS", "HAZ", "REV", "SHO"};
 char buffer[32];
@@ -124,21 +124,21 @@ void pattern_callback( int idx, int v, int up ) {
 	
 	// paint the "base color" first - i.e. parking lights or off
 	for (i=0; i<LEFTSIDE_SIZE; i++) 
-		leftSideMarker.setPixelColor(i, park ? CLR_RPARK : 0);
+		leftSideMarker.setPixelColor(i, park ? COLOR_RPARK : 0);
 	for (i=0; i<RIGHTSIDE_SIZE; i++) 
-		rightSideMarker.setPixelColor(i, park ? CLR_RPARK : 0);
+		rightSideMarker.setPixelColor(i, park ? COLOR_RPARK : 0);
 	// DRL is on when headlights are off - opposite of park
 	for (i=0; i<LEFTTURN_SIZE; i++) 
-		leftBlinker.setPixelColor(i, park ? CLR_RPARK : 0);
+		leftBrakeTurn.setPixelColor(i, park ? COLOR_RPARK : 0);
 	for (i=0; i<RIGHTTURN_SIZE; i++) 
-		rightBlinker.setPixelColor(i, park ? CLR_RPARK : 0);
+		rightBrakeTurn.setPixelColor(i, park ? COLOR_RPARK : 0);
 	
 	// if brakes on, override the brake lights
 	if (brake) {
 		for (i=0; i<LEFTTURN_SIZE; i++) 
-			leftBlinker.setPixelColor(i, CLR_BRAKES);
+			leftBrakeTurn.setPixelColor(i, COLOR_BRAKES);
 		for (i=0; i<RIGHTTURN_SIZE; i++) 
-			rightBlinker.setPixelColor(i,CLR_BRAKES);
+			rightBrakeTurn.setPixelColor(i,COLOR_BRAKES);
 	}
 	
 	// if turning or hazards, override the appropriate blinker
@@ -156,12 +156,12 @@ void pattern_callback( int idx, int v, int up ) {
 		// push the appropriate pixel colors
 		if (hazard || turnleft) {
 			for (i=0; i<LEFTTURN_SIZE; i++) {
-				leftBlinker.setPixelColor(i, blinklit ? CLR_TURNS : 0);
+				leftBrakeTurn.setPixelColor(i, blinklit ? COLOR_TURNS : 0);
 			}
 		}
 		if (hazard || turnright) {
 			for (i=0; i<RIGHTTURN_SIZE; i++) {
-				rightBlinker.setPixelColor(i, blinklit ? CLR_TURNS : 0);
+				rightBrakeTurn.setPixelColor(i, blinklit ? COLOR_TURNS : 0);
 			}
 		}
 	} else if (blinkstarted >= 0) {
@@ -173,14 +173,14 @@ void pattern_callback( int idx, int v, int up ) {
 	// finally, if in reverse gear, override the reverse section of the tails
 	if (reverse) {
 		for (i=REVERSE_START; i<REVERSE_START+REVERSE_LENGTH; i++) {
-			leftBlinker.setPixelColor(i, CLR_REVERSE);
-			rightBlinker.setPixelColor(i, CLR_REVERSE);
+			leftBrakeTurn.setPixelColor(i, COLOR_REVERSE);
+			rightBrakeTurn.setPixelColor(i, COLOR_REVERSE);
 		}
 	}
 	
 	// now push the color pattern out to the strips
-	leftBlinker.show();
-	rightBlinker.show();
+	leftBrakeTurn.show();
+	rightBrakeTurn.show();
 	leftSideMarker.show();
 	rightSideMarker.show();
 }
@@ -198,16 +198,16 @@ void sendPeer(int cmd, int arg=-1) {
 // Reset everything possible
 void reset(bool fromPeer) {
 	if(!fromPeer) {
-		sendPeer(C_RST);
+		sendPeer(CMD_RST);
 	}
 	animator.stop();
-	leftBlinker.clear();
-	rightBlinker.clear();
+	leftBrakeTurn.clear();
+	rightBrakeTurn.clear();
 	leftSideMarker.clear();
 	rightSideMarker.clear();
 	pontiacLogo.clear();
-	leftBlinker.show();
-	rightBlinker.show();
+	leftBrakeTurn.show();
+	rightBrakeTurn.show();
 	leftSideMarker.show();
 	rightSideMarker.show();
 	pontiacLogo.show();
@@ -219,48 +219,48 @@ void reset(bool fromPeer) {
 // Command-processing callback for peerLink
 void cmd_callback( int idx, int v, int up ) {
 	bool arg_true = false;
-	if(v > C_RST) {
+	if(v > CMD_RST) {
 		arg_true = peerCmd.arg(1)[0] == '1';
 	}
 	
 	switch ( v ) {
-		case C_NOP:
+		case CMD_NOP:
 			// FUTURE: flag peer as alive
 			return;
-		case C_RST:
+		case CMD_RST:
 			reset(true);
 			return;
-		case C_PRK:
+		case CMD_PRK:
 			if(arg_true)
 				lightsOn.on();
 			else
 				lightsOn.off();
 			return;
-		case C_BRK:
+		case CMD_BRK:
 			if(arg_true)
 				brakesOn.on();
 			else
 				brakesOn.off();
 			return;
-		case C_LTS:
+		case CMD_LTS:
 			if(arg_true)
 				turningLeft.on();
 			else
 				turningLeft.off();
 			return;
-		case C_RTS:
+		case CMD_RTS:
 			if(arg_true)
 				turningRight.on();
 			else
 				turningRight.off();
 			return;
-		case C_HAZ:
+		case CMD_HAZ:
 			if(arg_true)
 				hazardOn.on();
 			else
 				hazardOn.off();
 			return;
-		case C_SHO:
+		case CMD_SHO:
 			if(arg_true)
 				inShowMode.on();
 			else
@@ -304,8 +304,8 @@ void changeLogoColor(int idx, int v, int up) {
 // Arduino setup() - initialize everything here
 void setup() {
 	// Initialize the NeoPixel strands
-	leftBlinker.begin();
-	rightBlinker.begin();
+	leftBrakeTurn.begin();
+	rightBrakeTurn.begin();
 	leftSideMarker.begin();
 	rightSideMarker.begin();
 	pontiacLogo.begin();
@@ -324,8 +324,8 @@ void setup() {
 	lightsOn.begin();
 	hazardOn.begin();
 	reverseInput.begin(REVERSE_PIN)
-    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(C_REV, 1); })
-    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(C_REV, 0); });
+    	.onChange(HIGH, [](int idx, int v, int up) { sendPeer(CMD_REV, 1); })
+    	.onChange(LOW, [](int idx, int v, int up) { sendPeer(CMD_REV, 0); });
 	resetButton.begin(RESET_PIN)
     	.onPress([](int idx, int v, int up) { reset(false); });
     colorKnob.begin(ACCENTPOT_PIN)
